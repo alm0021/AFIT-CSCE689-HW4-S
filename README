@@ -1,0 +1,35 @@
+(Mostly complete - subject to minor changes)
+
+A well-known retailer has started delivering packages to customers via autonomous drones. They have three antennas around the city that pick up the drone's signal and record it's current position. It is very important that the drones are tracked meticulously as straying into a tower or over restricted airspace is dangerous and carries a hefty fine (and potential lawsuits). GPS data is received by the antenna from the drone broadcast and fed into a local server, which then performs a complex set of calculations to verify the drone is performing properly. This requires knowing the entire flight path of the drone. As each server is geographically-separated, they will only have the part of the path that is within range. In addition, at the range's margins, two stations may be picking up the same location data. The replication server was created by a grad student who didn't finish their thesis on time and was sent to Thule AB. Your job is finish the server. It currently replicates but does not provide authentication or encryption for the data. It also does not de-conflict duplicate plots or adjust for time skew. 
+
+The code base is located at: https://github.com/slate6715/AFIT-CSCE689-HW4-S (Links to an external site.)Links to an external site.
+
+The design document can be downloaded here: HW4_Design_v1.docx
+
+The code that is reading data from the drones will operate on another thread that will be provided to you. Before writing your code, highly recommend you do some planning. Things to consider:
+
+System clocks may not be synchronized to the second;  data at two sites may have identical location readings that are off by a second or two. If you write both of those to the database, it will look like the drone stopped suddenly for a few seconds. How will you reconcile this?
+Similarly, due to atmospheric variations, two sites may receive data intermittently, making it look like the drone is jumping back and forth if their clocks are not sync'd.
+You are unable to directly synchronize the system clocks
+Access to the database will be mutex'd between your thread and the simulation thread
+It is up to you to define your naming convention and communications methods, but they should be efficient and reliable. Many methods already exist within the code that can greatly simplify this task.
+The code provided to you that you should not modify:
+
+Code to simulate receiving data from the drones (operates in its own thread; do not modify this code)
+APIs via the DroneDB class to interface with the saved drone data - you can make some modificatoins to DronePlotDB but it should not break the simulator or "break the fourth wall". 
+As usual, do not change the main.cpp file
+Code requirements:
+
+Replication server that should listen on the specified IP and port (command line-provided)
+Replication server should identify new data and replicate it to the other two servers (already works)
+Servers should encrypt communications using AES shared-key block encryption provided via the libcrypt++6 library (get libcrypt++6 and libcrypt++6-dev) (This code functionality has been built-in for you)
+Servers should only connect to other servers when sending replication information and disconnect when complete (already does this)
+Each new connection should begin with a challenge/response handshake using randomly generated bits and reject connections that fail to properly encrypt the bits in response - use the process defined in Figure 9.6 of your text (pg. 514)
+To minimize network traffic, there must be at least a 20 second delay between replication actions for a server (incoming replication does not count)
+The DroneDB class will have a data dump function (provided to you) where each server's database can be dumped to file at the end of the simulation. In addition, you will be provided with the "answer solution". A "diff" command between your output should show no differences with the following exceptions:
+The "answer solution" can be slightly off its timestamp as long as the deviation is the same throughout (i.e. always 1 second greater)
+The "answer solution" can have slight variations on node_id where duplicate entries were found
+You are welcome to use an iterative or concurrent server design, though the existing code is largely iterative.
+Write a paper that explains the architecture of the server and your server design decisions. Your paper should reference concepts from your course material, including your consistency model, communications method, naming convention, and coordination techniques. Justify why you used the distributed systems techniques that you did versus the other available techniques (you should discuss the other techniques and why they don't fit). In addition, critique the existing server architecture and indicate any areas you would change. A quality paper is thorough, complete and descriptive when referencing concepts. 
+
+Grading 70% code, 30% paper.
