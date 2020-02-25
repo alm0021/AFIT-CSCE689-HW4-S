@@ -76,7 +76,7 @@ public:
    int loadBinaryFile(const char *filename);
    int writeBinaryFile(const char *filename);
    
-   // Sort the database in order of timestamp (used by sim, not really for student use)
+   // Sort the database in order of timestamp 
    void sortByTime();
 
    // Remove all plotpoints of a particular node (used to generate binary, not for student use)

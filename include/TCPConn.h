@@ -92,6 +92,7 @@ protected:
 
 private:
 
+   bool _connected = false;
 
    std::vector<uint8_t> c_rep, c_endrep, c_auth, c_endauth, c_ack, c_sid, c_endsid;
 

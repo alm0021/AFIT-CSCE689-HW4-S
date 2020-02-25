@@ -76,9 +76,9 @@ void AntennaSim::simulate() {
       std::cout << "SIM: Delaying 3 seconds before starting sim to let servers come online.\n";
 
    // Provide a short 3 second delay before starting
-   for (unsigned int i=0; i<3; i++) {
+   for (unsigned int i=3; i>0; i--) {
       if (_verbosity >= 2)
-         std::cout << i+1 << "\n";
+         std::cout << i << "\n";
       sleep(1);
    }
 

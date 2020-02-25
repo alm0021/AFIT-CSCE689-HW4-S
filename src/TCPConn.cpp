@@ -92,6 +92,7 @@ bool TCPConn::accept(SocketFD &server) {
 
    // Set the state as waiting for the authorization packet
    _status = s_connected;
+   _connected = true;
    return results;
 }
 
@@ -369,7 +370,6 @@ void TCPConn::awaitAck() {
 
  
       disconnect();
-      _status = s_none;
    }
 }
 
@@ -499,7 +499,7 @@ bool TCPConn::getCmdData(std::vector<uint8_t> &buf, std::vector<uint8_t> &startc
    auto start = findCmd(temp, startcmd);
    auto end = findCmd(temp, endcmd);
 
-   if ((start == temp.end()) || (end == temp.end()))
+   if ((start == temp.end()) || (end == temp.end()) || (start == end))
       return false;
 
    buf.assign(start + startcmd.size(), end);
@@ -561,6 +561,7 @@ void TCPConn::connect(const char *ip_addr, unsigned short port) {
    if (!_connfd.connectTo(ip_addr, port))
       throw socket_error("TCP Connection failed!");
 
+   _connected = true;
 }
 
 // Same as above, but ip_addr and port are in network (big endian) format
@@ -571,6 +572,7 @@ void TCPConn::connect(unsigned long ip_addr, unsigned short port) {
    if (!_connfd.connectTo(ip_addr, port))
       throw socket_error("TCP Connection failed!");
 
+   _connected = true;
 }
 
 /**********************************************************************************************
@@ -597,6 +599,7 @@ void TCPConn::assignOutgoingData(std::vector<uint8_t> &data) {
  **********************************************************************************************/
 void TCPConn::disconnect() {
    _connfd.closeFD();
+   _connected = false;
 }
 
 
@@ -606,7 +609,8 @@ void TCPConn::disconnect() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 bool TCPConn::isConnected() {
-   return _connfd.isOpen();
+   return _connected;
+   // return _connfd.isOpen(); // This does not work very well
 }
 
 /**********************************************************************************************

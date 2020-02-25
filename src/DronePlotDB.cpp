@@ -202,7 +202,7 @@ void DronePlot::clrFlags(unsigned short flags) {
 }
 
 bool DronePlot::isFlagSet(unsigned short flags) {
-   return (bool) _flags & flags;
+   return (bool) (_flags & flags);
 }
 
 /*****************************************************************************************
@@ -454,15 +454,19 @@ std::list<DronePlot>::iterator DronePlotDB::erase(std::list<DronePlot>::iterator
    // First lock the mutex (blocking)
    pthread_mutex_lock(&_mutex);
 
-   return _dbdata.erase(dptr);
+   auto retptr = _dbdata.erase(dptr);
 
    // Unlock the mutex before we exit
    pthread_mutex_unlock(&_mutex);
 
+   return retptr;
 }
+
 
 // Removes all of a particular node (not for student use)
 void DronePlotDB::removeNodeID(unsigned int node_id) {
+   pthread_mutex_lock(&_mutex);
+
    auto del_iter = _dbdata.begin();
    while (del_iter != _dbdata.end()) {
       if (del_iter->node_id == node_id)
@@ -470,6 +474,8 @@ void DronePlotDB::removeNodeID(unsigned int node_id) {
       else
          del_iter++;
    }
+
+   pthread_mutex_unlock(&_mutex);
 }
 
 /*****************************************************************************************
@@ -478,7 +484,11 @@ void DronePlotDB::removeNodeID(unsigned int node_id) {
  *       Used by the simulator--students should not need to use this
  *****************************************************************************************/
 void DronePlotDB::sortByTime() {
+   pthread_mutex_lock(&_mutex);
+
    _dbdata.sort(compare_plot);
+
+   pthread_mutex_unlock(&_mutex);
 }
 
 /*****************************************************************************************

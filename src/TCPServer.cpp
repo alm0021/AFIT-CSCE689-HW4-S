@@ -172,8 +172,10 @@ void TCPServer::handleConnections() {
          if ((*tptr)->getStatus() == TCPConn::s_connecting) {
 
             // If our retry timer hasn't expired....skip
-            if ((*tptr)->reconnect > time(NULL))
+            if ((*tptr)->reconnect > time(NULL)) {
+               tptr++;
                continue;
+            }
 
             unsigned long ip_addr = (*tptr)->getIPAddr();
             unsigned short port = (*tptr)->getPort();
@@ -190,6 +192,8 @@ void TCPServer::handleConnections() {
                _server_log.writeLog(msg.str().c_str());
                (*tptr)->disconnect();
                (*tptr)->reconnect = time(NULL) + reconnect_delay;
+               tptr++;
+               continue;
             }
          // Else we're in a different state and there's not data waiting to be read
          } else if (!(*tptr)->isInputDataReady()) {
@@ -202,9 +206,11 @@ void TCPServer::handleConnections() {
             // Remove them from the connect list
             tptr = _connlist.erase(tptr);
             std::cout << "Connection disconnected.\n";
-            return;
+            continue;
          }
-      }
+         tptr++;
+         continue;
+      } 
 
       // Process any user inputs
       (*tptr)->handleConnection();
