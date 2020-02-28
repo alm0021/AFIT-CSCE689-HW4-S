@@ -253,10 +253,10 @@ void TCPConn::sendRand_B(){
    std::string rand_B(_authstr);
    genRandString(rand_B, auth_size);
    std::vector<uint8_t> buf(rand_B.begin(), rand_B.end());
-   wrapCmd(buf, c_sid, c_endsid);
+   wrapCmd(buf, c_auth, c_endauth);
    sendData(buf);
 
-   _status = s_challenge3; 
+   _status = s_challenge5; 
 }
 
 /**********************************************************************************************
@@ -277,7 +277,7 @@ void TCPConn::sendEncrRand_B(){
       if (!getData(buf))
          return;
 
-      if (!getCmdData(buf, c_sid, c_endsid)) {
+      if (!getCmdData(buf, c_auth, c_endauth)) {
          std::stringstream msg;
          msg << "Random string from connecting client invalid format. Cannot authenticate.";
          _server_log.writeLog(msg.str().c_str());
@@ -309,10 +309,78 @@ void TCPConn::sendRand_A(){
    std::string rand_A = _authstr;
    genRandString(rand_A, auth_size);
    std::vector<uint8_t> buf(rand_A.begin(), rand_A.end());
-   wrapCmd(buf, c_sid, c_endsid);
+   wrapCmd(buf, c_auth, c_endauth);
    sendData(buf);
 
    _status = s_challenge5; 
+}
+
+/**********************************************************************************************
+ * waitEncrRand_A  - Server: after client sends K(R_B), server receives K(R_B) and decrypts
+ * 
+ **********************************************************************************************/
+void TCPConn::waitEncrRand_B(){
+    // If data on the socket, should be encrypted random string from our client
+   if (_connfd.hasData()) {
+      std::vector<uint8_t> buf;
+
+      //Get K(R_B) and decrypt
+      if (!getEncryptedData(buf))
+         return;
+
+      if (!getCmdData(buf, c_auth, c_endauth)) {
+         std::stringstream msg;
+         msg << "Encrypted random string from connecting client invalid format. Cannot authenticate.";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      //check if decrypted K(R_B) is equal to R_B
+      if (_authstr.compare(toString(buf)) != 0){
+         std::stringstream msg;
+         msg << "Client shared key not valid. Cannot authenticate.";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      //set status to wait for R_A  
+}
+
+/**********************************************************************************************
+ * waitRand_A  - Server: after server receives K(R_B), server receives R_A from client, 
+ *    encrypts, send K(R_A) to client
+ * 
+ **********************************************************************************************/
+void TCPConn::waitRand_A(){
+   // If data on the socket, should be random string (R_A) from our host server
+   if (_connfd.hasData()) {
+      std::vector<uint8_t> buf;
+
+      if (!getData(buf))
+         return;
+
+      // Get R_A
+      if (!getCmdData(buf2, c_auth, c_endauth)) {
+         std::stringstream msg;
+         msg << "Random string from connecting client invalid format. Cannot authenticate.";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      //encrypt R_A and send K(R_A) to server
+      if(!sendEncryptedData(buf2)){
+         std::stringstream msg;
+         msg << "Error encrypting and sending data to server. Cannot authenticate.";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      //set status to wait for some message from client confirming authentication
+   }
 }
 
 /**********************************************************************************************
@@ -336,7 +404,7 @@ void TCPConn::sendEncrRand_A(){
       if (!getEncryptedData(buf))
          return;
 
-      if (!getCmdData(buf, c_sid, c_endsid)) {
+      if (!getCmdData(buf, c_auth, c_endauth)) {
          std::stringstream msg;
          msg << "Encrypted random string from connecting client invalid format. Cannot authenticate.";
          _server_log.writeLog(msg.str().c_str());
@@ -353,7 +421,7 @@ void TCPConn::sendEncrRand_A(){
       }
 
       // Get R_A
-      if (!getCmdData(buf2, c_sid, c_endsid)) {
+      if (!getCmdData(buf2, c_auth, c_endauth)) {
          std::stringstream msg;
          msg << "Random string from connecting client invalid format. Cannot authenticate.";
          _server_log.writeLog(msg.str().c_str());
@@ -394,7 +462,7 @@ void TCPConn::client_auth(){
       if (!getEncryptedData(buf))
          return;
 
-      if (!getCmdData(buf, c_sid, c_endsid)) {
+      if (!getCmdData(buf, c_auth, c_endauth)) {
          std::stringstream msg;
          msg << "Encrypted random string from connecting server invalid format. Cannot authenticate.";
          _server_log.writeLog(msg.str().c_str());

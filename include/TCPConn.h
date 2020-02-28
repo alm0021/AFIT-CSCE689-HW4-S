@@ -74,6 +74,8 @@ public:
    void sendRand_A(); // message 4
    void sendEncrRand_A(); // message 5
    void client_auth(); //client authenticates server
+   void waitEncrRand_B(); // server waits for K(R_B)
+   void waitRand_A(); // server waits for R_A and sends K(R_A)
 
 protected:
    // Functions to execute various stages of a connection 
