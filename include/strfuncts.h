@@ -17,3 +17,6 @@ int hideInput(int fd, bool hide);
 
 // Generates a random string of the assigned length
 void genRandString(std::string &buf, size_t n);
+
+// converts array of bits to string
+std::string toString(std::vector< uint8_t > hash)
