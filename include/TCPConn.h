@@ -16,7 +16,7 @@ public:
    ~TCPConn();
 
    // The current status of the connection
-   enum statustype { s_none, s_connecting, s_connected, s_datatx, s_datarx, s_waitack, s_hasdata };
+   enum statustype { s_none, s_connecting, s_connected, s_challenge2, s_challenge3, s_challenge4, s_challenge5, s_clientauth, s_datatx, s_datarx, s_waitack, s_hasdata };
 
    statustype getStatus() { return _status; };
 
@@ -67,6 +67,13 @@ public:
 
    // Assign outgoing data and sets up the socket to manage the transmission
    void assignOutgoingData(std::vector<uint8_t> &data);
+
+   //Shared key authentication
+   void sendRand_B(); // message 2
+   void sendEncrRand_B(); // message 3
+   void sendRand_A(); // message 4
+   void sendEncrRand_A(); // message 5
+   void client_auth(); //client authenticates server
 
 protected:
    // Functions to execute various stages of a connection 

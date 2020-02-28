@@ -2,6 +2,7 @@
 #include <termios.h>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <algorithm>
 #include <random>
 #include <functional>
@@ -95,3 +96,20 @@ void genRandString(std::string &buf, size_t n) {
 }
 
 
+/****************************************************************************************************
+ * toString - converts uint8_t vectors to strings
+ *
+ *	  Params: hash - vector of uint8_t (hash or salt)
+      Returns: string of data contained in vector
+ *    Throws:
+ ****************************************************************************************************/
+std::string toString(std::vector< uint8_t > hash) {
+
+	std::string str;
+	std::ostringstream os;
+	for (int i = 0; i < hash.size(); ++i) {
+		os << hash[i];
+	}
+	str = os.str();
+	return str;
+}
