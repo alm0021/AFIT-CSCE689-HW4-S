@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 // Remove /r and /n from a string
 void clrNewlines(std::string &str);
@@ -19,4 +20,4 @@ int hideInput(int fd, bool hide);
 void genRandString(std::string &buf, size_t n);
 
 // converts array of bits to string
-std::string toString(std::vector< uint8_t > hash)
+std::string toString(std::vector< uint8_t > hash);

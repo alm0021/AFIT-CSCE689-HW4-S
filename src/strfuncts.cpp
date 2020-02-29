@@ -107,7 +107,7 @@ std::string toString(std::vector< uint8_t > hash) {
 
 	std::string str;
 	std::ostringstream os;
-	for (int i = 0; i < hash.size(); ++i) {
+	for (unsigned int i = 0; i < hash.size(); ++i) {
 		os << hash[i];
 	}
 	str = os.str();
