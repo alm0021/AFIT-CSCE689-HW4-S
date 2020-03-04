@@ -176,42 +176,47 @@ void TCPConn::handleConnection()
       switch (_status)
       {
 
-      // Client: Just connected, send our SID (A)
+      // Client (1): Just connected, send our SID (A)
       case s_connecting:
          sendSID();
          break;
 
-      // Server: Wait for the SID from a newly-connected client, then send our SID
+      // Server (1): Wait for the SID from a newly-connected client, then send our SID
       case s_connected:
          waitForSID();
          break;
 
-      //Server: Send unencrypted random string (R_B)
-      case s_challenge2:
+      //Server (1,2): Send unencrypted random string (R_B)
+      case s_S_sendR_B:
          //message2
          sendRand_B();
          break;
 
-      //Client: Send back server's encrypted random string (K(R_B))
-      case s_challenge3:
+      //Client (2): Wait for R_B and send back server's encrypted random string (K(R_B))
+      case s_C_waitR_B:
          //challenge2
          sendEncrRand_B();
          break;
 
-      //Client: Send unencrypted random string (R_A)
-      case s_challenge4:
+      //Client (4): Send unencrypted random string (R_A)
+      case s_C_sendR_A:
          //challenge4
          sendRand_A();
          break;
 
-      //Server: Decrypt random string (K(R_B)) and send back client's encrypted random string (K(R_A))
-      case s_challenge5:
+      //Server (3): Decrypt random string (K(R_B)) and send back client's encrypted random string (K(R_A))
+      case s_S_waitKR_B:
          //challenge5
-         sendEncrRand_A();
+         waitEncrRand_B();
+         break;
+      
+      //Server (4,5): Waits for R_A and sends K(R_A) to client
+      case s_S_waitR_A:
+         waitRand_A();
          break;
 
-      //Client: Decrypt encrypted random string (K(R_A)) and authorize server
-      case s_clientauth:
+      //Client (5): Decrypt encrypted random string (K(R_A)) and authorize server
+      case s_C_waitKR_A:
          client_auth();
          break;
 
@@ -248,7 +253,7 @@ void TCPConn::handleConnection()
 }
 
 /**********************************************************************************************
- * sendRand_B()  - Server: after receiving SID from client, sends unencrypted random string
+ * sendRand_B()  - Server (1,2): after receiving SID from client, sends unencrypted random string
  *    to client
  *
  *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
@@ -256,17 +261,37 @@ void TCPConn::handleConnection()
 void TCPConn::sendRand_B()
 {
 
-   std::string rand_B(_authstr);
-   genRandString(rand_B, auth_size);
-   std::vector<uint8_t> buf(rand_B.begin(), rand_B.end());
-   wrapCmd(buf, c_auth, c_endauth);
-   sendData(buf);
+   // If data on the socket, should be our Auth string from our host server
+   if (_connfd.hasData())
+   {
+      std::vector<uint8_t> buf;
 
-   _status = s_challenge5;
+      if (!getData(buf))
+         return;
+
+      if (!getCmdData(buf, c_sid, c_endsid))
+      {
+         std::stringstream msg;
+         msg << "SID string from connecting client invalid format. Cannot authenticate.";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      std::string rand_B(_authstr);
+      genRandString(rand_B, auth_size);
+      std::vector<uint8_t> rbuf(rand_B.begin(), rand_B.end());
+      wrapCmd(rbuf, c_auth, c_endauth);
+      sendData(rbuf);
+
+      //_status = s_datarx;
+      _status = s_S_waitKR_B;
+   }
+
 }
 
 /**********************************************************************************************
- * sendEncrRand_B  - Client: after receiving random string from server, sends encrypted random string
+ * sendEncrRand_B  - Client (2,3): after receiving random string from server, sends encrypted random string
  *    to server
  *
  *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
@@ -304,12 +329,12 @@ void TCPConn::sendEncrRand_B()
          return;
       }
 
-      _status = s_challenge4;
+      _status = s_C_sendR_A;
    }
 }
 
 /**********************************************************************************************
- * sendRand_A()  - Client: after sending K(R_B) to server, sends unencrypted random string
+ * sendRand_A()  - Client (4): after sending K(R_B) to server, sends unencrypted random string
  *    to server
  *
  *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
@@ -323,11 +348,11 @@ void TCPConn::sendRand_A()
    wrapCmd(buf, c_auth, c_endauth);
    sendData(buf);
 
-   _status = s_challenge5;
+   _status = s_C_waitKR_A;
 }
 
 /**********************************************************************************************
- * waitEncrRand_A  - Server: after client sends K(R_B), server receives K(R_B) and decrypts
+ * waitEncrRand_B  - Server (3): after client sends K(R_B), server receives K(R_B) and decrypts
  * 
  **********************************************************************************************/
 void TCPConn::waitEncrRand_B()
@@ -361,11 +386,12 @@ void TCPConn::waitEncrRand_B()
       }
 
       //set status to wait for R_A
+      _status = s_S_waitR_A;
    }
 }
 
 /**********************************************************************************************
- * waitRand_A  - Server: after server receives K(R_B), server receives R_A from client, 
+ * waitRand_A  - Server (4,5): after server receives K(R_B), server receives R_A from client, 
  *    encrypts, send K(R_A) to client
  * 
  **********************************************************************************************/
@@ -400,76 +426,12 @@ void TCPConn::waitRand_A()
       }
 
       //set status to wait for some message from client confirming authentication
+      _status = s_connected;
    }
 }
 
 /**********************************************************************************************
- * sendEncrRand_A  - Server: after receiving K(R_B) and R_A from client, decrypts K(R_B) and 
- *                   sends encrypted random string to client
- *
- *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
- **********************************************************************************************/
-void TCPConn::sendEncrRand_A()
-{
-
-   //receive encrypted random string (K(R_B))
-   //receive random string from server (R_A)
-   //encrypt R_A and send K(R_A) to server
-
-   // If data on the socket, should be encrypted random string from our client
-   if (_connfd.hasData())
-   {
-      std::vector<uint8_t> buf;
-      std::vector<uint8_t> buf2;
-
-      //Get K(R_B) and decrypt
-      if (!getEncryptedData(buf))
-         return;
-
-      if (!getCmdData(buf, c_auth, c_endauth))
-      {
-         std::stringstream msg;
-         msg << "Encrypted random string from connecting client invalid format. Cannot authenticate.";
-         _server_log.writeLog(msg.str().c_str());
-         disconnect();
-         return;
-      }
-      //check if decrypted K(R_B) is equal to R_B
-      if (_authstr.compare(toString(buf)) != 0)
-      {
-         std::stringstream msg;
-         msg << "Client shared key not valid. Cannot authenticate.";
-         _server_log.writeLog(msg.str().c_str());
-         disconnect();
-         return;
-      }
-
-      // Get R_A
-      if (!getCmdData(buf2, c_auth, c_endauth))
-      {
-         std::stringstream msg;
-         msg << "Random string from connecting client invalid format. Cannot authenticate.";
-         _server_log.writeLog(msg.str().c_str());
-         disconnect();
-         return;
-      }
-
-      //encrypt R_A and send K(R_A) to server
-      if (!sendEncryptedData(buf2))
-      {
-         std::stringstream msg;
-         msg << "Error encrypting and sending data to server. Cannot authenticate.";
-         _server_log.writeLog(msg.str().c_str());
-         disconnect();
-         return;
-      }
-
-      _status = s_clientauth;
-   }
-}
-
-/**********************************************************************************************
- * client_auth  - Client: Decrypts K(R_A) and establishes trust with server
+ * client_auth  - Client (5): Decrypts K(R_A) and establishes trust with server
  *
  *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
  **********************************************************************************************/
@@ -507,7 +469,13 @@ void TCPConn::client_auth()
          disconnect();
          return;
       }
-      _status = s_clientauth;
+
+      //Resend SID as confirmation of authentication
+      std::vector<uint8_t> sbuf(_svr_id.begin(), _svr_id.end());
+      wrapCmd(sbuf, c_sid, c_endsid);
+      sendData(sbuf);
+      
+      _status = s_datatx;
    }
 }
 
@@ -523,7 +491,8 @@ void TCPConn::sendSID()
    wrapCmd(buf, c_sid, c_endsid);
    sendData(buf);
 
-   _status = s_datatx;
+   //_status = s_datatx;
+   _status = s_C_waitR_B;
 }
 
 /**********************************************************************************************
@@ -560,8 +529,7 @@ void TCPConn::waitForSID()
       wrapCmd(buf, c_sid, c_endsid);
       sendData(buf);
 
-      //_status = s_datarx;
-      _status = s_challenge2;
+      _status = s_datarx;
    }
 }
 

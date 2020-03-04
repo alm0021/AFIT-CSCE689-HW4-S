@@ -16,7 +16,8 @@ public:
    ~TCPConn();
 
    // The current status of the connection
-   enum statustype { s_none, s_connecting, s_connected, s_challenge2, s_challenge3, s_challenge4, s_challenge5, s_clientauth, s_datatx, s_datarx, s_waitack, s_hasdata };
+   enum statustype { s_none, s_connecting, s_connected, s_C_waitR_B, s_C_sendR_A, s_C_waitKR_A, s_S_sendR_B,
+       s_S_waitKR_B, s_S_waitR_A, s_datatx, s_datarx, s_waitack, s_hasdata };
 
    statustype getStatus() { return _status; };
 
@@ -69,18 +70,19 @@ public:
    void assignOutgoingData(std::vector<uint8_t> &data);
 
    //Shared key authentication
-   void sendRand_B(); // message 2
-   void sendEncrRand_B(); // message 3
-   void sendRand_A(); // message 4
-   void sendEncrRand_A(); // message 5
-   void client_auth(); //client authenticates server
-   void waitEncrRand_B(); // server waits for K(R_B)
-   void waitRand_A(); // server waits for R_A and sends K(R_A)
+   void sendRand_B(); // 2 - Server sends R_B
+   void sendEncrRand_B(); // 2, 3 - Client sends K(R_B)
+   void sendRand_A(); // 4 - Client sends R_A
+   void sendEncrRand_A(); // 5 - Server sends K(R_A)
+   void waitEncrRand_A(); // 5 - Client waits for K(R_A)
+   void client_auth(); // 6 - Client authenticates server
+   void waitEncrRand_B(); // 3 - Server waits for K(R_B)
+   void waitRand_A(); // 4 - Server waits for R_A and sends K(R_A)
 
 protected:
    // Functions to execute various stages of a connection 
-   void sendSID();
-   void waitForSID();
+   void sendSID(); // 1 - Client sends A
+   void waitForSID(); // 1 - Server waits for A
    void transmitData();
    void waitForData();
    void awaitAck();
